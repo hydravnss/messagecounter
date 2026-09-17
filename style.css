@@ -1,0 +1,81 @@
+#message-counter-badge {
+    position: fixed;
+
+    right: 20px;
+    bottom: 112px;
+
+    z-index: 99999;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 7px;
+
+    min-width: 72px;
+    height: 38px;
+
+    padding: 0 12px;
+
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 20px;
+
+    background: rgba(30, 30, 30, 0.90);
+
+    color: #ffffff;
+
+    font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "SF Pro Display",
+        "SF Pro Text",
+        system-ui,
+        sans-serif;
+
+    font-size: 16px;
+    font-weight: 700;
+
+    line-height: 1;
+
+    box-shadow:
+        0 4px 18px rgba(0, 0, 0, 0.28);
+
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+
+    user-select: none;
+    -webkit-user-select: none;
+
+    pointer-events: none;
+}
+
+#message-counter-badge .message-counter-icon {
+    font-size: 17px;
+    line-height: 1;
+}
+
+#message-counter-badge .message-counter-number {
+    min-width: 12px;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+
+    #message-counter-badge {
+        right: 18px;
+        bottom: 108px;
+
+        min-width: 66px;
+        height: 36px;
+
+        padding: 0 10px;
+
+        gap: 6px;
+
+        font-size: 15px;
+    }
+
+    #message-counter-badge .message-counter-icon {
+        font-size: 16px;
+    }
+}
