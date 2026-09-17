@@ -1,47 +1,108 @@
-const EXTENSION_NAME = 'message-counter';
+const EXTENSION_NAME = 'messagecounter';
 
-let badge = null;
+let counterElement = null;
 let updateTimer = null;
+let observer = null;
 let initialized = false;
+
+
+/* ==========================================================
+   CONTEXTE SILLYTAVERN
+   ========================================================== */
 
 function getContext() {
     return SillyTavern.getContext();
 }
 
-function getMessageCount() {
-    const { chat } = getContext();
 
-    if (Array.isArray(chat)) {
-        return chat.length;
+/* ==========================================================
+   COMPTER LES MESSAGES
+   ========================================================== */
+
+function getMessageCount() {
+    const context = getContext();
+
+    if (Array.isArray(context.chat)) {
+        return context.chat.length;
     }
 
     return document.querySelectorAll('#chat .mes').length;
 }
 
-function createBadge() {
-    if (badge && document.body.contains(badge)) {
-        return badge;
+
+/* ==========================================================
+   CREER LE COMPTEUR
+   ========================================================== */
+
+function createCounter() {
+    if (counterElement && document.body.contains(counterElement)) {
+        return counterElement;
     }
 
-    badge = document.createElement('div');
-    badge.id = 'message-counter-badge';
+    const rightSendForm = document.querySelector('#rightSendForm');
 
-    badge.innerHTML = `
+    if (!rightSendForm) {
+        return null;
+    }
+
+    // Évite les doublons
+    const existing = rightSendForm.querySelector('#message-counter');
+
+    if (existing) {
+        counterElement = existing;
+        return existing;
+    }
+
+    counterElement = document.createElement('div');
+
+    counterElement.id = 'message-counter';
+
+    counterElement.innerHTML = `
         <span class="message-counter-icon">💬</span>
         <span class="message-counter-number">0</span>
     `;
 
-    document.body.appendChild(badge);
+    /*
+     * On place le compteur directement dans la zone
+     * des boutons d'envoi.
+     *
+     * Il sera donc toujours attaché à la barre de saisie.
+     */
 
-    return badge;
+    const sendButton = rightSendForm.querySelector('#send_but');
+
+    if (sendButton) {
+        rightSendForm.insertBefore(counterElement, sendButton);
+    } else {
+        rightSendForm.appendChild(counterElement);
+    }
+
+    return counterElement;
 }
+
+
+/* ==========================================================
+   MISE À JOUR
+   ========================================================== */
 
 function updateCounter() {
-    const element = createBadge();
-    const number = element.querySelector('.message-counter-number');
+    const element = createCounter();
 
-    number.textContent = getMessageCount();
+    if (!element) {
+        return;
+    }
+
+    const number = element.querySelector(
+        '.message-counter-number'
+    );
+
+    if (!number) {
+        return;
+    }
+
+    number.textContent = String(getMessageCount());
 }
+
 
 function scheduleUpdate() {
     clearTimeout(updateTimer);
@@ -50,6 +111,40 @@ function scheduleUpdate() {
         updateCounter();
     }, 50);
 }
+
+
+/* ==========================================================
+   SURVEILLER LA BARRE D'ENVOI
+   ========================================================== */
+
+function watchSendBar() {
+    if (observer) {
+        observer.disconnect();
+    }
+
+    observer = new MutationObserver(() => {
+        /*
+         * Le thème peut reconstruire #rightSendForm.
+         * On vérifie simplement que notre compteur existe encore.
+         */
+
+        if (!document.querySelector('#message-counter')) {
+            createCounter();
+        }
+
+        updateCounter();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
+}
+
+
+/* ==========================================================
+   INITIALISATION
+   ========================================================== */
 
 function init() {
     if (initialized) {
@@ -61,44 +156,61 @@ function init() {
 
     const context = getContext();
 
-    createBadge();
+    createCounter();
     updateCounter();
 
-    const {
-        eventSource,
-        event_types,
-    } = context;
+    /*
+     * Événements SillyTavern
+     */
 
-    const events = [
-        event_types.MESSAGE_SENT,
-        event_types.MESSAGE_RECEIVED,
-        event_types.MESSAGE_DELETED,
-        event_types.MESSAGE_UPDATED,
-        event_types.MESSAGE_SWIPED,
-        event_types.MESSAGE_SWIPE_DELETED,
-        event_types.MORE_MESSAGES_LOADED,
-        event_types.CHAT_CHANGED,
-    ].filter(Boolean);
+    if (context.eventSource && context.event_types) {
 
-    for (const event of events) {
-        eventSource.on(event, scheduleUpdate);
+        const events = [
+            context.event_types.MESSAGE_SENT,
+            context.event_types.MESSAGE_RECEIVED,
+            context.event_types.MESSAGE_DELETED,
+            context.event_types.MESSAGE_UPDATED,
+            context.event_types.MESSAGE_SWIPED,
+            context.event_types.MESSAGE_SWIPE_DELETED,
+            context.event_types.MORE_MESSAGES_LOADED,
+            context.event_types.CHAT_CHANGED,
+        ].filter(Boolean);
+
+        for (const event of events) {
+            context.eventSource.on(event, scheduleUpdate);
+        }
     }
 
-    const chat = document.querySelector('#chat');
+    watchSendBar();
 
-    if (chat) {
-        const observer = new MutationObserver(() => {
-            scheduleUpdate();
-        });
+    /*
+     * Certaines interfaces mobiles créent la barre
+     * quelques instants après le chargement.
+     */
 
-        observer.observe(chat, {
-            childList: true,
-            subtree: true,
-        });
-    }
+    let attempts = 0;
 
-    window.addEventListener('resize', scheduleUpdate);
+    const waitForBar = setInterval(() => {
+
+        createCounter();
+        updateCounter();
+
+        attempts++;
+
+        if (
+            document.querySelector('#rightSendForm #message-counter') ||
+            attempts >= 60
+        ) {
+            clearInterval(waitForBar);
+        }
+
+    }, 250);
 }
+
+
+/* ==========================================================
+   EXPORT SILLYTAVERN
+   ========================================================== */
 
 export {
     init,
